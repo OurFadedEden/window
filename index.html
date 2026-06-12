@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Our Faded Eden — 커버 생성기</title>
+
+<!-- 갈무리 한글 도트 폰트 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css">
+
+<!-- 내보내기 라이브러리 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+<style>
+  @font-face {
+    font-family: 'DungGeunMo';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2107@1.1/DungGeunMo.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:none; }
+
+  html,body {
+    min-height:100%;
+    font-family:'Galmuri11', sans-serif;
+    background:#EFE9DD;
+    color:#5E6E72;
+  }
+
+  /* ====================================================
+     전체 레이아웃
+  ==================================================== */
+  .app {
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px;
+    padding:24px;
+    max-width:1200px;
+    margin:0 auto;
+    align-items:flex-start;
+  }
+  .preview-col {
+    flex:1 1 420px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    align-items:center;
+  }
+  .control-col {
+    flex:1 1 360px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  h1 {
+    font-family:'Galmuri9', sans-serif;
+    font-size:18px;
+    letter-spacing:2px;
+    text-align:center;
+    color:#5E6E72;
+    text-shadow:1px 1px 0 #fff;
+  }
+
+  /* 모드 토글 */
+  .mode-toggle {
+    display:flex;
+    gap:8px;
+  }
+  .mode-toggle button {
+    flex:1;
+    font-family:'Galmuri9', sans-serif;
+    font-size:11px;
+    padding:8px;
+    background:#F3EFE6;
+    border:2px solid #8A9A9C;
+    border-radius:10px;
+    cursor:pointer;
+    box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 rgba(138,154,156,0.25);
+  }
+  .mode-toggle button.active {
+    background:#8A9A9C;
+    color:#F8F5EE;
+  }
+
+  /* 프리뷰 박스 */
+  .cover-wrap {
+    width:100%;
+    max-width:480px;
+    border:2px dashed #BFC9C5;
+    border-radius:14px;
+    padding:14px;
+    background:#fff;
+    display:flex;
+    justify-content:center;
+  }
+  #cover {
+    position:relative;
+    width:100%;
+    overflow:hidden;
+    border-radius:8px;
+    font-family: var(--font-main, 'Galmuri11'), sans-serif;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 35%, var(--sky-bottom) 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+  }
+  #cover.mode-pc     { aspect-ratio: 16 / 10; }
+  #cover.mode-mobile { aspect-ratio: 9 / 16; max-width:300px; }
+
+  /* 그레인 + 비네트 */
+  .fade-overlay {
+    position:absolute; inset:0; pointer-events:none; z-index:5;
+    background:
+      radial-gradient(ellipse at center, rgba(255,255,255,0) 45%, rgba(120,110,95,0.20) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+    opacity:0.5;
+    mix-blend-mode:multiply;
+  }
+
+  /* 구름 */
+  .cloud { position:absolute; background:var(--base); opacity:0.7; border-radius:50px; box-shadow:0 0 0 8px var(--base); animation:drift linear infinite; z-index:1; }
+  .cloud::before,.cloud::after { content:""; position:absolute; background:var(--base); border-radius:50px; }
+  .cloud1{width:70px;height:26px;top:10%;left:-20%;animation-duration:50s;}
+  .cloud1::before{width:38px;height:38px;top:-16px;left:8px;}
+  .cloud1::after{width:26px;height:26px;top:-10px;left:40px;}
+  .cloud2{width:50px;height:20px;top:20%;left:-25%;animation-duration:65s;animation-delay:-15s;transform:scale(.8);}
+  .cloud2::before{width:28px;height:28px;top:-12px;left:6px;}
+  .cloud2::after{width:20px;height:20px;top:-8px;left:30px;}
+  .cloud3{width:60px;height:22px;top:6%;left:-30%;animation-duration:75s;animation-delay:-35s;transform:scale(.6);}
+  .cloud3::before{width:32px;height:32px;top:-14px;left:8px;}
+  .cloud3::after{width:24px;height:24px;top:-8px;left:36px;}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(160vw)}}
+
+  /* 거품 */
+  .bubble{position:absolute;bottom:-40px;border-radius:50%;background:color-mix(in srgb, var(--base) 60%, transparent);border:2px solid color-mix(in srgb, var(--base) 80%, transparent);animation:rise linear infinite;z-index:1;}
+  @keyframes rise{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.8}100%{transform:translateY(-110%) translateX(20px);opacity:0}}
+
+  /* 타이틀 */
+  .eden-title{position:relative;z-index:6;text-align:center;color:var(--text);text-shadow:2px 2px 0 rgba(255,255,255,.5);}
+  .eden-title .en{font-family:'Galmuri9',sans-serif;font-size:clamp(16px,4.5vw,28px);letter-spacing:4px;}
+  .eden-title .kr{margin-top:6px;font-size:clamp(9px,2vw,12px);letter-spacing:3px;color:color-mix(in srgb, var(--text) 70%, var(--base));}
+
+  /* 윈도우 */
+  .win98{position:relative;z-index:6;width:80%;max-width:320px;background:var(--base);border:3px solid var(--accent);border-radius:18px;
+    box-shadow:0 6px 0 color-mix(in srgb, var(--accent) 30%, transparent), 0 0 0 5px color-mix(in srgb, var(--base) 90%, white), 0 0 0 8px var(--accent);
+    overflow:hidden;}
+  .title-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;
+    background:linear-gradient(120deg, color-mix(in srgb, var(--accent) 35%, white) 0%, var(--accent) 100%);
+    color:#F8F5EE;font-family:'Galmuri9',sans-serif;font-size:11px;letter-spacing:1px;text-shadow:1px 1px 0 rgba(80,90,90,.35);}
+  .title-buttons{display:flex;gap:4px;}
+  .title-buttons span{display:inline-flex;align-items:center;justify-content:center;width:16px;height:14px;background:var(--base);color:var(--accent);border-radius:5px;font-size:9px;}
+  .win98-body{padding:12px;display:flex;flex-direction:column;gap:10px;}
+
+  .photo-frame{
+    width:100%; aspect-ratio:4/3; border-radius:12px;
+    border:3px dashed color-mix(in srgb, var(--accent) 50%, var(--base));
+    background-color:#E8E2D5;
+    background-image: var(--photo, none);
+    background-size:cover; background-position:center;
+    position:relative; overflow:hidden;
+  }
+  .photo-frame.fx-faded{ filter:sepia(35%) saturate(70%) brightness(1.05) contrast(95%); }
+  .photo-frame.fx-glitch::before,.photo-frame.fx-glitch::after{
+    content:""; position:absolute; inset:0;
+    background-image:inherit; background-size:cover; background-position:center;
+    mix-blend-mode:screen;
+  }
+  .photo-frame.fx-glitch::before{ background-color:rgba(255,0,90,.35); animation:glitch1 2.6s infinite linear; }
+  .photo-frame.fx-glitch::after{ background-color:rgba(0,210,255,.3); animation:glitch2 2.6s infinite linear; }
+  .photo-frame.fx-glitch{ }
+  .photo-frame.fx-glitch > .scan{
+    position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,.08) 0px, rgba(255,255,255,.08) 1px, transparent 2px, transparent 4px);
+    animation:scan-move 6s linear infinite;
+    mix-blend-mode:overlay;
+  }
+  @keyframes scan-move{ from{background-position:0 0;} to{background-position:0 60px;} }
+  @keyframes glitch1{0%,88%,100%{transform:translate(0,0);opacity:0}90%{transform:translate(-4px,2px);opacity:.5}93%{transform:translate(3px,-1px);opacity:.4}96%{transform:translate(-2px,1px);opacity:.5}}
+  @keyframes glitch2{0%,84%,100%{transform:translate(0,0);opacity:0}86%{transform:translate(4px,-2px);opacity:.45}90%{transform:translate(-3px,1px);opacity:.4}94%{transform:translate(2px,2px);opacity:.5}}
+
+  .desc-box{background:color-mix(in srgb, var(--base) 96%, white);border:2px solid color-mix(in srgb, var(--accent) 35%, white);border-radius:10px;padding:8px 10px;font-size:clamp(9px,1.8vw,12px);line-height:1.8;color:var(--text);text-align:center;}
+
+  .enter-btn{width:100%;padding:10px;font-family:var(--font-main,'Galmuri11'),sans-serif;font-size:clamp(10px,2.2vw,14px);color:var(--text);
+    background:color-mix(in srgb, var(--base) 90%, var(--accent));border:2px solid var(--accent);border-radius:12px;cursor:default;
+    box-shadow:inset 2px 2px 0 #fff, inset -2px -2px 0 color-mix(in srgb, var(--accent) 25%, transparent), 0 4px 0 var(--accent);
+    letter-spacing:1px;}
+
+  .status-bar{display:flex;justify-content:space-between;padding:5px 10px;font-family:'Galmuri9',sans-serif;font-size:9px;color:color-mix(in srgb, var(--text) 60%, var(--base));background:color-mix(in srgb, var(--base) 96%, black);border-top:2px dashed color-mix(in srgb, var(--accent) 30%, white);}
+
+  .taskbar{position:absolute;left:0;right:0;bottom:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 25%, var(--base)) 0%, var(--accent) 100%);
+    border-top:3px solid var(--base);font-family:'Galmuri9',sans-serif;font-size:10px;color:#fff;z-index:6;}
+  .taskbar .start-btn{display:flex;align-items:center;gap:6px;background:var(--base);color:var(--text);border:2px solid var(--accent);border-radius:10px;padding:4px 10px;}
+  .taskbar .clock{background:var(--base);color:var(--text);border:2px solid var(--accent);border-radius:8px;padding:4px 8px;}
+
+  .desk-icon{position:absolute;z-index:6;display:none;flex-direction:column;align-items:center;gap:4px;font-family:'Galmuri9',sans-serif;font-size:9px;color:var(--text);text-shadow:1px 1px 0 rgba(255,255,255,.6);}
+  .desk-icon .box{width:34px;height:34px;background:var(--base);border:2px solid var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .icon-1{top:10%;left:5%;} .icon-2{top:28%;left:5%;} .icon-3{top:10%;right:5%;} .icon-4{top:28%;right:5%;}
+  #cover.mode-pc .desk-icon{display:flex;}
+
+  /* ====================================================
+     컨트롤 패널
+  ==================================================== */
+  .panel{background:#F8F5EE;border:2px solid #BFC9C5;border-radius:12px;padding:12px;}
+  .panel h2{font-family:'Galmuri9',sans-serif;font-size:11px;letter-spacing:1px;color:#7C8A86;margin-bottom:8px;border-bottom:2px dashed #E0DACE;padding-bottom:6px;}
+  .row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+  .row label{flex:0 0 86px;font-size:11px;color:#5E6E72;}
+  .row input[type=text],.row textarea,.row select{
+    flex:1; min-width:90px; font-family:inherit; font-size:11px; padding:6px 8px;
+    border:2px solid #BFC9C5; border-radius:8px; background:#fff; color:#5E6E72;
+  }
+  .row textarea{resize:vertical; min-height:32px;}
+  .row input[type=color]{width:34px;height:28px;border:2px solid #BFC9C5;border-radius:6px;padding:0;background:#fff;}
+  .row input[type=file]{flex:1; font-size:10px;}
+  .row .emoji-input{width:46px; flex:0 0 46px; text-align:center;}
+  .check{display:flex;align-items:center;gap:6px;font-size:11px;}
+  .icon-grid{display:grid;grid-template-columns:46px 1fr;gap:6px;margin-bottom:6px;}
+
+  .export-btn{
+    width:100%; padding:12px; margin-bottom:8px; font-family:'Galmuri11',sans-serif; font-size:13px;
+    background:#EAE5D8; border:2px solid #8A9A9C; border-radius:12px; cursor:pointer; color:#5E6E72;
+    box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 rgba(138,154,156,.25), 0 4px 0 #8A9A9C;
+  }
+  .export-btn:active{ transform:translateY(4px); box-shadow:none; }
+  .export-status{font-size:10px; color:#A4ADA8; text-align:center; min-height:14px;}
+
+  @media (max-width:860px){
+    .app{flex-direction:column;}
+    .preview-col,.control-col{flex:1 1 auto; width:100%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ 미리보기 ============ -->
+  <div class="preview-col">
+    <h1>Our Faded Eden — 커버 생성기</h1>
+
+    <div class="mode-toggle">
+      <button id="btn-pc" class="active">🖥 PC 비율</button>
+      <button id="btn-mobile">📱 모바일 비율</button>
+    </div>
+
+    <div class="cover-wrap">
+      <div id="cover" class="mode-pc"
+        style="--sky-top:#DCE8E6; --sky-mid:#C7DBDC; --sky-bottom:#A6C0CA; --base:#F3EFE6; --accent:#8A9A9C; --text:#5E6E72; --font-main:'Galmuri11';">
+
+        <div class="fade-overlay"></div>
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+        <div class="cloud cloud3"></div>
+
+        <div class="bubble" style="left:8%;  width:14px; height:14px; animation-duration:9s;  animation-delay:0s;"></div>
+        <div class="bubble" style="left:20%; width:10px; height:10px; animation-duration:7s;  animation-delay:1.5s;"></div>
+        <div class="bubble" style="left:35%; width:18px; height:18px; animation-duration:11s; animation-delay:3s;"></div>
+        <div class="bubble" style="left:55%; width:12px; height:12px; animation-duration:8s;  animation-delay:0.5s;"></div>
+        <div class="bubble" style="left:70%; width:16px; height:16px; animation-duration:10s; animation-delay:2s;"></div>
+        <div class="bubble" style="left:85%; width:11px; height:11px; animation-duration:9s;  animation-delay:4s;"></div>
+        <div class="bubble" style="left:92%; width:8px;  height:8px;  animation-duration:6s;  animation-delay:1s;"></div>
+
+        <div class="desk-icon icon-1"><div class="box" id="icon1-emoji">🌊</div><span id="icon1-label">深海</span></div>
+        <div class="desk-icon icon-2"><div class="box" id="icon2-emoji">🌇</div><span id="icon2-label">黃昏</span></div>
+        <div class="desk-icon icon-3"><div class="box" id="icon3-emoji">🌱</div><span id="icon3-label">靑春</span></div>
+        <div class="desk-icon icon-4"><div class="box" id="icon4-emoji">🤝</div><span id="icon4-label">Brotherhood</span></div>
+
+        <div class="eden-title">
+          <div class="en" id="title-en">Our Faded Eden</div>
+          <div class="kr" id="title-kr">— 우리의 빛바랜 낙원 —</div>
+        </div>
+
+        <div class="win98">
+          <div class="title-bar">
+            <div class="title-left"><span id="win-icon">🐚</span> <span id="win-title">Faded Eden</span></div>
+            <div class="title-buttons"><span>_</span><span>□</span><span>x</span></div>
+          </div>
+          <div class="win98-body">
+            <div class="photo-frame fx-faded" id="photo-frame">
+              <div class="scan"></div>
+            </div>
+            <div class="desc-box" id="desc-text">...빛이 점점 흐려집니다...<br>오래된 낙원으로 가라앉을까요?</div>
+            <button class="enter-btn" id="btn-text">심해에 잠기시겠습니까?</button>
+          </div>
+          <div class="status-bar"><span id="status-left">● 준비됨</span><span id="status-right">faded 100%</span></div>
+        </div>
+
+        <div class="taskbar">
+          <div class="start-btn" id="taskbar-text">🌊 시작</div>
+          <div class="clock" id="clock">00:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 컨트롤 패널 ============ -->
+  <div class="control-col">
+
+    <div class="panel">
+      <h2>📷 사진 / 효과</h2>
+      <div class="row">
+        <label>이미지</label>
+        <input type="file" id="photo-input" accept="image/*">
+      </div>
+      <div class="check"><input type="checkbox" id="fx-faded" checked> <label for="fx-faded">빛바램 효과 (세피아)</label></div>
+      <div class="check" style="margin-top:6px;"><input type="checkbox" id="fx-glitch"> <label for="fx-glitch">글리치 효과</label></div>
+    </div>
+
+    <div class="panel">
+      <h2>🔤 글씨체</h2>
+      <div class="row">
+        <label>폰트</label>
+        <select id="font-select">
+          <option value="'Galmuri11'" selected>Galmuri11 (둥근 도트)</option>
+          <option value="'Galmuri9'">Galmuri9 (작은 도트)</option>
+          <option value="'Galmuri7'">Galmuri7 (작은 사각 도트)</option>
+          <option value="'DungGeunMo'">DungGeunMo (둥근모꼴)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>📝 문구</h2>
+      <div class="row"><label>상단 영문</label><input type="text" id="t-title-en" value="Our Faded Eden"></div>
+      <div class="row"><label>상단 한글</label><input type="text" id="t-title-kr" value="— 우리의 빛바랜 낙원 —"></div>
+      <div class="row"><label>창 제목</label><input type="text" id="t-win-title" value="Faded Eden"></div>
+      <div class="row"><label>설명 문구</label><textarea id="t-desc">...빛이 점점 흐려집니다...
+오래된 낙원으로 가라앉을까요?</textarea></div>
+      <div class="row"><label>버튼 문구</label><input type="text" id="t-btn" value="심해에 잠기시겠습니까?"></div>
+      <div class="row"><label>작업표시줄</label><input type="text" id="t-taskbar" value="🌊 시작"></div>
+      <div class="row"><label>상태표시줄</label><input type="text" id="t-status-l" value="● 준비됨"> <input type="text" id="t-status-r" value="faded 100%"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🐚 데스크탑 아이콘 (PC 비율에서만 표시)</h2>
+      <div class="icon-grid">
+        <input type="text" class="emoji-input" id="i1-emoji" value="🌊"><input type="text" id="i1-label" value="深海">
+        <input type="text" class="emoji-input" id="i2-emoji" value="🌇"><input type="text" id="i2-label" value="黃昏">
+        <input type="text" class="emoji-input" id="i3-emoji" value="🌱"><input type="text" id="i3-label" value="靑春">
+        <input type="text" class="emoji-input" id="i4-emoji" value="🤝"><input type="text" id="i4-label" value="Brotherhood">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>🎨 색상</h2>
+      <div class="row"><label>하늘 위</label><input type="color" id="c-sky-top" value="#DCE8E6"></div>
+      <div class="row"><label>하늘 아래</label><input type="color" id="c-sky-bottom" value="#A6C0CA"></div>
+      <div class="row"><label>창 배경</label><input type="color" id="c-base" value="#F3EFE6"></div>
+      <div class="row"><label>테두리</label><input type="color" id="c-accent" value="#8A9A9C"></div>
+      <div class="row"><label>글자색</label><input type="color" id="c-text" value="#5E6E72"></div>
+    </div>
+
+    <div class="panel">
+      <h2>💾 내보내기</h2>
+      <button class="export-btn" id="export-png">PNG로 저장</button>
+      <button class="export-btn" id="export-gif">GIF로 저장 (애니메이션)</button>
+      <div class="export-status" id="export-status"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const cover = document.getElementById('cover');
+
+  // ---------- 모드 토글 ----------
+  document.getElementById('btn-pc').onclick = () => {
+    cover.classList.remove('mode-mobile'); cover.classList.add('mode-pc');
+    setActive('btn-pc');
+  };
+  document.getElementById('btn-mobile').onclick = () => {
+    cover.classList.remove('mode-pc'); cover.classList.add('mode-mobile');
+    setActive('btn-mobile');
+  };
+  function setActive(id){
+    document.getElementById('btn-pc').classList.toggle('active', id==='btn-pc');
+    document.getElementById('btn-mobile').classList.toggle('active', id==='btn-mobile');
+  }
+
+  // ---------- 사진 업로드 ----------
+  document.getElementById('photo-input').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      cover.style.setProperty('--photo', `url(${reader.result})`);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- 효과 ----------
+  const photoFrame = document.getElementById('photo-frame');
+  document.getElementById('fx-faded').addEventListener('change', e=>{
+    photoFrame.classList.toggle('fx-faded', e.target.checked);
+  });
+  document.getElementById('fx-glitch').addEventListener('change', e=>{
+    photoFrame.classList.toggle('fx-glitch', e.target.checked);
+  });
+
+  // ---------- 폰트 ----------
+  document.getElementById('font-select').addEventListener('change', e=>{
+    cover.style.setProperty('--font-main', e.target.value);
+  });
+
+  // ---------- 문구 ----------
+  const bind = (id, target, isHtml=false) => {
+    document.getElementById(id).addEventListener('input', e=>{
+      const val = e.target.value;
+      if(isHtml){
+        target.innerHTML = val.split('\n').map(s=>s).join('<br>');
+      } else {
+        target.textContent = val;
+      }
+    });
+  };
+  bind('t-title-en', document.getElementById('title-en'));
+  bind('t-title-kr', document.getElementById('title-kr'));
+  bind('t-win-title', document.getElementById('win-title'));
+  bind('t-desc', document.getElementById('desc-text'), true);
+  bind('t-btn', document.getElementById('btn-text'));
+  bind('t-taskbar', document.getElementById('taskbar-text'));
+  bind('t-status-l', document.getElementById('status-left'));
+  bind('t-status-r', document.getElementById('status-right'));
+
+  // ---------- 아이콘 ----------
+  for(let i=1;i<=4;i++){
+    bind('i'+i+'-emoji', document.getElementById('icon'+i+'-emoji'));
+    bind('i'+i+'-label', document.getElementById('icon'+i+'-label'));
+  }
+
+  // ---------- 색상 ----------
+  const colorMap = {
+    'c-sky-top':'--sky-top',
+    'c-sky-bottom':'--sky-bottom',
+    'c-base':'--base',
+    'c-accent':'--accent',
+    'c-text':'--text'
+  };
+  Object.keys(colorMap).forEach(id=>{
+    document.getElementById(id).addEventListener('input', e=>{
+      cover.style.setProperty(colorMap[id], e.target.value);
+      if(id==='c-sky-top' || id==='c-sky-bottom'){
+        // 중간색은 위/아래 평균으로 자동 계산
+        const top = document.getElementById('c-sky-top').value;
+        const bot = document.getElementById('c-sky-bottom').value;
+        cover.style.setProperty('--sky-mid', mixHex(top, bot, 0.5));
+      }
+    });
+  });
+  function mixHex(a,b,t){
+    const pa = parseInt(a.slice(1),16), pb = parseInt(b.slice(1),16);
+    const ar=(pa>>16)&255, ag=(pa>>8)&255, ab=pa&255;
+    const br=(pb>>16)&255, bg=(pb>>8)&255, bb=pb&255;
+    const r=Math.round(ar+(br-ar)*t), g=Math.round(ag+(bg-ag)*t), bl=Math.round(ab+(bb-ab)*t);
+    return '#'+[r,g,bl].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ---------- 시계 ----------
+  function updateClock(){
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  }
+  updateClock(); setInterval(updateClock, 30000);
+
+  // ---------- 내보내기 ----------
+  const statusEl = document.getElementById('export-status');
+
+  document.getElementById('export-png').onclick = async ()=>{
+    statusEl.textContent = '이미지 생성 중...';
+    try{
+      const canvas = await html2canvas(cover, {scale:2, useCORS:true, backgroundColor:null});
+      canvas.toBlob(blob=>{
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'our-faded-eden.png';
+        a.click();
+        statusEl.textContent = 'PNG 다운로드 완료!';
+      });
+    }catch(err){
+      statusEl.textContent = '오류: '+err.message;
+    }
+  };
+
+  document.getElementById('export-gif').onclick = async ()=>{
+    if(typeof GIF === 'undefined'){
+      statusEl.textContent = 'gif.js 로딩 실패. 새로고침 후 다시 시도해주세요.';
+      return;
+    }
+    const FRAMES = 20;
+    const DELAY = 120; // ms per frame
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: cover.offsetWidth,
+      height: cover.offsetHeight,
+      workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js.worker.js'
+    });
+
+    for(let i=0;i<FRAMES;i++){
+      statusEl.textContent = `GIF 생성 중... (${i+1}/${FRAMES})`;
+      const canvas = await html2canvas(cover, {scale:1, useCORS:true, backgroundColor:null});
+      gif.addFrame(canvas, {delay: DELAY, copy:true});
+      await new Promise(r=>setTimeout(r, DELAY));
+    }
+
+    statusEl.textContent = 'GIF 인코딩 중...';
+    gif.on('finished', blob=>{
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'our-faded-eden.gif';
+      a.click();
+      statusEl.textContent = 'GIF 다운로드 완료!';
+    });
+    gif.render();
+  };
+</script>
+
+</body>
+</html>
